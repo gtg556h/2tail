@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import 2tailLib as 2t
+import twoTailLib as tt
 
 LT1 = 1200       # Length of tail 1
 LT2 = LT1        # Length of tail 2
@@ -40,9 +40,15 @@ params = {'LT1':LT1, 'LT2':LT2, 'theta':theta, 'dx':dx, 'omega1':omega1, 'omega2
 
 # Initialize and process swimmer:
 
-s = 2t.2tail(params)
+s = tt.swimmer(params)
 # s.actuator()
 # s.numSolve()
 # s.propulsionCalc()
 # print(np.mean(s.Ux))
 # s.plotDisp(16,1)
+
+if 1:
+    plt.plot(s.x[0,:],s.x[1,:])
+    plt.axis('equal')
+    plt.show()
+    
