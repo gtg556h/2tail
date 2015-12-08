@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numpy.linalg
 import matplotlib.animation as animation
+import actuationWaveforms
 
 ##########################################################
 
@@ -38,6 +39,37 @@ class flagella(object):
         self.y0 = self.origin[1] + self.xi0 * np.sin(self.alpha) + self.eta0 * np.cos(self.alpha)
 
 
+    def processActuator(self, t):
+        self.t = t
+        self.m = np.zeros_like(self.xi0)
+        mStartIndex = np.round(self.params['mStart'] / self.params['dx'])
+        mEndIndex = np.round(self.params['mEnd'] / self.params['dx'])
+        self.m[mStartIndex:mEndIndex + 1] = self.params['moment']
+        self.mFunc = actuationWaveforms.genWaveform(self.drivingFunction, t, self.omega)
+
+        self.momentCalc()
+
+
+    #######
+
+    def momentCalc(self):
+
+        self.m[0:2] = np.zeros([2]); self.m[-2:] = np.zeros([2])
+        a = np.zeros([self.m.shape[0],self.m.shape[0]])
+        self.w = np.zeros([self.x.shape[0],self.t.shape[0]])
+
+        for i in range(0, self.x.shape[0]-1):
+            a[i,i+1:self.m.shape[0]] = self.dx*np.arange(1,self.m.shape[0]-i,1)
+
+        a[self.m.shape[0]-1,:] = np.ones([1,self.m.shape[0]])
+
+        wBase = np.linalg.solve(a,self.m)
+
+        for i in range(0,self.t.shape[0]):
+            self.w[:,i] = np.multiply(wBase,self.mFunc[i])
+
+
+            
 #########################################################
 
 
@@ -58,27 +90,39 @@ class swimmer(object):
             i.xi[:,0] = i.xi0
             i.eta[:,0] = i.eta0
 
+        print('Calculating normal driving forces w(x,t)')
+        for i in structures:
+            i.processActuator(self.t)
+
+
         self.theta = np.zeros_like(self.t)
         self.X = np.zeros_like(self.t)
         self.Y = np.zeros_like(self.t)
 
 
+    def numSolve(self):
+        print('Solving for y(x,t)')
 
+        # for each element, generate D4, Dt, a, c
+
+        # Solve for displacement for each element, *including* current swimmer translation,
+        # rotation, and contribution from integrating green's functions from all other elements.
+
+        # Calculate required origin translation and rotation to enforce zero force and torque
+
+        # Recompute element displacements and iterate until correction translations and
+        # rotations are less than some convergence threshold
 
             
-    def painter(self):
-        self.s = np.concatenate((np.arange(-self.LT1,0,self.dx), np.arange(0,self.LT2+self.dx,self.dx)), axis=0)
-        x = np.cos(self.theta/2) * np.concatenate((np.arange(self.LT1,0,-self.dx), np.arange(0,self.LT2+self.dx,self.dx)), axis=0)
-        y = np.sin(self.theta/2) * np.concatenate((np.arange(-self.LT1,0,self.dx), np.arange(0,self.LT2+self.dx,self.dx)), axis=0)
-        self.x = np.array([x[:],y[:]])
-
-
-
-
-
-        
-
-
 ####################################################
+
+
+
+
+
+
+
+
+
 
 
