@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy.linalg
 import matplotlib.animation as animation
 import actuationWaveforms
+import pdb
 
 ##########################################################
 
@@ -42,6 +43,9 @@ class flagella(object):
         self.zetaT = np.ones_like(self.x0)*self.zetaT
 
 
+    #####################################################
+
+        
     def processActuator(self, t, dt):
         self.t = t
         self.dt = dt
@@ -54,7 +58,8 @@ class flagella(object):
         self.momentCalc()
 
 
-    #######
+    #####################################################
+    
 
     def momentCalc(self):
 
@@ -73,6 +78,9 @@ class flagella(object):
             self.w[:,i] = np.multiply(wBase,self.mFunc[i])
 
 
+    ######################################################
+            
+
     def differentialOperator(self):
         nx = self.x.shape[0]
         nt = self.t.shape[0]
@@ -81,6 +89,7 @@ class flagella(object):
         self.Dt = np.zeros_like(self.D4)
         self.a = np.zeros_like(self.D4)
         self.c = np.zeros([nx, nt])
+        self.c2 = np.zeros([nx, nt])
 
         for i in range(2, nx-2):
             self.D4[i, i-2:i+3] = self.A[i] * np.array([1, -4, 6, -4, 1]) / self.dx**3
@@ -106,21 +115,54 @@ class flagella(object):
         self.a = self.a + self.D4 + self.Dt
 
 
-    def numStep(self, i, u, theta, X, Y):
+    ########################################################
+    
+
+    def stepElement(self, i, v, theta, X, Y):
         nx = self.x.shape[0]
         nt = self.t.shape[0]
 
-        self.c[2:nx-2, i] = self.c[2:nx-2, i] + np.multiply(self.zetaN[2:nx-2], self.eta[2:nx-2, i-1]) * self.dx/self.dt
+        self.c2[2:nx-2, i] = self.c[2:nx-2, i] + np.multiply(self.zetaN[2:nx-2], self.eta[2:nx-2, i-1]) * self.dx/self.dt
+        
+        # pdb.set_trace()
+        
+        # Add contribution of local fluid flow in eta direction:
+        self.c2[2:nx-2, i] = self.c2[2:nx-2, i] + np.multiply(self.zetaN[2:nx-2], v[2:nx-2]) * self.dx/self.dt
 
-        self.eta[:,i] = np.linalg.solve(self.a, self.c[:,i])
+        self.eta[:,i] = np.linalg.solve(self.a, self.c2[:,i])
+        self.xi[:,i] = self.xi0
 
         self.x[:,i] = X + self.xi0 * np.cos(self.alpha + theta) - self.eta[:,i] * np.sin(self.alpha + theta)
         self.y[:,i] = Y + self.xi0 * np.sin(self.alpha + theta) + self.eta[:,i] * np.cos(self.alpha + theta)
-        
 
+
+    #########################################################
+
+        
+    def computeDragConstants(self, theta):
+        # Following *assumes* that flagella is radial WRT to origin.  Modify!!
+        # Rotational moment = self.cxy * thetaDot
+        self.cxy = np.sum(sef.xi0 * self.zetaN * self.dx)    # Rotational drag coeff
+
+        # x-drag = self.cx * Xdot
+        self.cx = self.dx * np.sum(self.zetaN * np.sin(self.alpha + theta))
+        self.cx = self.cx + self.dx * np.sum(self.zetaT * np.cos(self.alpha + theta))
+
+        # y-drag = self.cy * Ydot
+        self.cy = self.dx * np.sum(self.zetaN * np.cos(self.alpha + theta))
+        self.cy = self.cy + self.dx * np.sum(self.zetaT * np.sin(self.alpha + theta))
+
+
+    #############################################################
+
+        
+    def calcDrag(self, theta, thetaDot, XDot, YDot, timestep):
+        
+        
             
 #########################################################
-
+#########################################################
+#########################################################
 
         
 class swimmer(object):
@@ -144,10 +186,13 @@ class swimmer(object):
         for i in self.structures:
             i.processActuator(self.t, dt)
 
-        self.theta = np.zeros_like(self.t)
-        self.X = np.zeros_like(self.t)
-        self.Y = np.zeros_like(self.t)
+        self.theta = np.zeros_like(self.t); self.thetaDot = np.zeros_like(self.t)
+        self.X = np.zeros_like(self.t); self.XDot = np.zeros_like(self.t)
+        self.Y = np.zeros_like(self.t); self.YDot = np.zeros_like(self.t)
 
+
+    ####################################################    
+        
 
     def numSolve(self):
         print('Solving for y(x,t)')
@@ -162,6 +207,7 @@ class swimmer(object):
         # Recompute element displacements and iterate until correction translations and
         # rotations are less than some convergence threshold
 
+        self.computeIZZ()
 
         for j in self.structures:
             j.differentialOperator()
@@ -169,15 +215,109 @@ class swimmer(object):
         for i in range(1,self.t.shape[0]):
             if np.mod(i, 50) == 0:
                 print(i/self.t.shape[0])
+
+            self.stepStructure(i)
+
+            
+    ###################################################
+
+    
+    def computeDragConstants(self, theta):
+        #####
+        self.cxy = 0
+        
+        for j in self.structures:
+            j.IZZ = np.sum(self.xi0 * self.zetaN * self.dx)
+            self.IZZ = self.IZZ + j.IZZ
+
+            
+    ####################################################
+
+            
+    def stepStructure(self, i):
+
+        thetaThresh = 100
+        XThresh = 100
+        YThresh = 100
+        
+        theta = self.theta[i-1] + self.thetaDot[i-1]*self.dt
+        X = self.X[i-1] + self.XDot[i-1]*self.dt
+        Y = self.Y[i-1] + self.YDot[i-1]*self.dt
+
+        thetaOld = theta; XOld = X; YOld = Y
+        
+        iteration = 0
+
+        while iteration < 2 or (theta - thetaOld > thetaThresh) or (X - XOld > XThresh) or (Y - YOld > YThresh):
+
+            iteration +=1
+            print(iteration)
+
+            XDot = (X - self.X[i-1])/self.dt
+            YDot = (Y - self.Y[i-1])/self.dt
+            thetaDot = (theta - self.theta[i-1])/self.dt
+
+            M = 0
+            Fx = 0
+            Fy = 0
+            
             for j in self.structures:
-                u = 0
+
+                
+                # v = self.computeVelocity(theta, XDot, YDot, j)
+                
+                v = -2*np.ones_like(j.x0)
+
                 theta = 0
                 X = 0
                 Y = 0
-                j.numStep(i, u, theta, X, Y)
+                j.stepElement(i, v, theta, X, Y)
+
+                # The following moment calculation is a bit simplistic....
+                # Should be updated to accomodate truly generic assemblies
+                # (With roots not necessarily fixed at origin)
+                M = M - np.sum((j.eta[:,i] - j.eta[:,i-1])/dt * j.xi[:,i] * j.zetaN)*j.dx
+                M = M - thetaDot * j.IZZ
+
+                
+                Fx = Fx - np.sum(XDot * j.zetaN * j.dx * sin(j.alpha + theta))
+                Fx = Fx - np.sum(XDot * j.zetaT * j.dx * cos(j.alpha + theta))
+                Fx = Fx + np.sum(j.eta[:,i] * j.zetaN * j.dx * sin(j.alpha + theta))
+
+                Fy = Fy - np.sum(YDot * j.zetaN * j.dx * cos(j.alpha + self.theta))
+                Fy = Fy - np.sum(YDot * j.zetaT * j.dx * sin(j.alpha + self.theta))
+                Fy = Fy - np.sum(j.eta[:,i] * j.zetaN * j.dx * cos(j.alpha + self.theta))
+
+            XOld = X; YOld = Y; thetaOld = theta
+            X, Y, theta = self.balanceForces(XOld, YOld, thetaOld, XDot, YDot, thetaDot)
+
+
+    ###############################################################
+            
+
+    def balanceForces(XOld, YOld, thetaOld, XDot, YDot, thetaDot):
+        cx = 0; yx = 0; IZZ = self.IZZ
+
+        for j in self.structures:
+            cx = cx + np.sum(j.zetaN * j.dx * sin(j.alpha + thetaOld))
+            cx = cx + np.sum(j.zetaT * j.dx * cos(j.alpha + thetaOld))
+
+            cy = cy + np.sum(j.zetaN * j.dx * cos(j.alpha + thetaOld))
+            cy = cy + np.sum(j.zetaT * j.dx * sin(j.alpha + thetaOld))
+
+        Fx = (f(thetaDot, XDot))
+        Fy = f(thetaDot, YDot)
+        M = f()
+    
+
+        
+
+                
+    ###########################################################
+
 
     def assemble(self):
-        # Build global displacement:
+        # Build global displacement from set of individual element displacement functions:
 
         self.x = None
         self.y = None
@@ -194,7 +334,9 @@ class swimmer(object):
         self.X = self.x
             
                 
-                
+    ###############################################            
+
+
     def plotDisp(self,DF=1,plotFrac=1):
 
         print('Displaying solution shapes')

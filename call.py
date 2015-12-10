@@ -16,7 +16,7 @@ omega1 = 3.25*2*np.pi     # Frequency of actuator 1
 omega2 = omega1 * .75          # Frequency of actuator 2
 phi1 = 0   # initial phase of actuator 1
 phi2 = 0       
-nT = 3.0                  # Number of actuation periods to compute
+nT = 8.0                  # Number of actuation periods to compute
 dt = 0.001
 dt = 0.004
  
@@ -33,7 +33,7 @@ zetaT1 = zetaN1 / 2.0     # Tangential drag coeff, tail 1
 zetaN2 = zetaN1           # Tail 2
 zetaT2 = zetaT1           # Tail 2
 
-moment1 = -37.37            # Peak bending moment, actuator 1
+moment1 = 0 #-37.37            # Peak bending moment, actuator 1
 mStart1 = 50.0            # Distance of start of actuator 1 from tail1 root
 mEnd1 = mStart1 + 60.0     # Distance of end of actuator 1 from tail root
 moment2 = -moment1          # Peak bending moment, actuator 2
