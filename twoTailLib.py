@@ -55,6 +55,8 @@ class flagella(object):
         self.m[mStartIndex:mEndIndex + 1] = self.params['moment']
         self.mFunc = actuationWaveforms.genWaveform(self.drivingFunction, t, self.omega)
 
+        
+
         self.momentCalc()
 
 
@@ -129,7 +131,7 @@ class flagella(object):
         # pdb.set_trace()
         
         # Add contribution of local fluid flow in eta direction:
-        self.c2[2:nx-2, i] = self.c2[2:nx-2, i] + np.multiply(self.zetaN[2:nx-2], v[2:nx-2]) * self.dx/self.dt
+        self.c2[2:nx-2, i] = self.c2[2:nx-2, i] - np.multiply(self.zetaN[2:nx-2], v[2:nx-2]) * self.dx
 
         self.eta[:,i] = np.linalg.solve(self.a, self.c2[:,i])
         self.xi[:,i] = self.xi0
@@ -160,23 +162,23 @@ class flagella(object):
 
         c = np.zeros([3,3])
         
-        # Following *assumes* that flagella is radial WRT to origin.  Modify!!
-        # Rotational moment = self.cxy * thetaDot
-
-        c[2,2] = -self.dx * np.sum(self.xi0 * self.xi0 * self.zetaN)
-        c[0,2] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
-        c[1,2] = -self.dx * np.sum(self.xi0 * self.zetaN) * np.cos(self.alpha + theta)
 
         # x-drag = self.cx * Xdot
         c[0,0] = -self.dx * np.sum(self.zetaN) * np.abs(np.sin(self.alpha + theta))
         c[0,0] = c[0,0] - self.dx * np.sum(self.zetaT) * np.abs(np.cos(self.alpha + theta))
         # Assuming flagella radial to origin:
-        c[0,2] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
+        c[2,0] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
                                   
         # y-drag = self.cy * Ydot
         c[1,1] = -self.dx * np.sum(self.zetaN) * np.abs(np.cos(self.alpha + theta))
         c[1,1] = c[1,1] - self.dx * np.sum(self.zetaT) * np.abs(np.sin(self.alpha + theta))
         # Assuming flagella radial to origin:
+        c[2,1] = -self.dx * np.sum(self.xi0 * self.zetaN) * np.cos(self.alpha + theta)
+
+        # Following *assumes* that flagella is radial WRT to origin.  Modify!!
+        # Rotational moment = self.cxy * thetaDot
+        c[2,2] = -self.dx * np.sum(self.xi0 * self.xi0 * self.zetaN)
+        c[0,2] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
         c[1,2] = -self.dx * np.sum(self.xi0 * self.zetaN) * np.cos(self.alpha + theta)
                 
 
@@ -188,7 +190,7 @@ class flagella(object):
         # Compute drag forces and moments ON swimmer elements:
 
         c = self.computeDragConstants(theta)
-
+        #pdb.set_trace()
         etaDot = (self.eta[:,timestep] - self.eta[:, timestep-1]) / self.dt
 
         XDotVec = np.array([[XDot],[YDot],[thetaDot]])
@@ -196,13 +198,13 @@ class flagella(object):
         fx = self.dx * np.sum(etaDot * self.zetaN) * np.sin(self.alpha + theta)
         fx = fx + np.dot(c, XDotVec)[0,0]
 
-        fy = np.sum(-etaDot * self.zetaN * np.cos(self.alpha + theta)) * self.dx
+        fy = self.dx * np.sum(-etaDot * self.zetaN) * np.cos(self.alpha + theta)
         fy = fy + np.dot(c, XDotVec)[1,0]
 
+        
         # Following calculation assumes that flagella is radial to origin.
         # Create scaling array that maps flagella location with radial component
         # in future!!!
-
         
         moment = -self.dx * np.sum(etaDot * self.xi0 * self.zetaN)
         moment = moment + np.dot(c, XDotVec)[2,0]
@@ -267,6 +269,7 @@ class swimmer(object):
             j.differentialOperator()
 
         for i in range(1,self.t.shape[0]):
+        #for i in range(1,3):
             if np.mod(i, 50) == 0:
                 print(i/self.t.shape[0])
 
@@ -278,27 +281,36 @@ class swimmer(object):
             
     def stepStructure(self, i):
 
-        thetaThresh = 100
-        XThresh = 100
-        YThresh = 100
+        thetaThresh = .001
+        XThresh = .001
+        YThresh = .001
         
         theta = self.theta[i-1] + self.thetaDot[i-1]*self.dt
         X = self.X[i-1] + self.XDot[i-1]*self.dt
         Y = self.Y[i-1] + self.YDot[i-1]*self.dt
 
+        #############
+        # DEBUGGING:
+        #X = self.X[i-1]
+        #Y = self.Y[i-1]
+        #############
+
         thetaOld = theta; XOld = X; YOld = Y
         
         iteration = 0
-
-        while iteration < 2: # or (theta - thetaOld > thetaThresh) or (X - XOld > XThresh) or (Y - YOld > YThresh):
+ 
+        while iteration < 10 and (iteration < 2 or (theta - thetaOld > thetaThresh) or (X - XOld > XThresh) or (Y - YOld > YThresh)):
+                                  
 
             iteration +=1
             #print(iteration)
+
 
             XDot = (X - self.X[i-1])/self.dt
             YDot = (Y - self.Y[i-1])/self.dt
             thetaDot = (theta - self.theta[i-1])/self.dt
 
+            
             for j in self.structures:
                 j.stepElement(i, theta, X, Y, XDot, YDot, thetaDot)
 
@@ -308,10 +320,19 @@ class swimmer(object):
             # Calculate *corrections* to velocities in order to balance forces/moments
             # with current flagella deformations:
             cXDot, cYDot, cthetaDot = self.balanceForces(X, Y, theta, XDot, YDot, thetaDot, i)
+            #cXDot = cXDot / 10
+            #cYDot = cYDot / 10
+            #cthetaDot = cthetaDot / 10
+            #print(cXDot,cYDot,cthetaDot)
             X = X + cXDot * self.dt;  XDot = XDot + cXDot
             Y = Y + cYDot * self.dt;  YDot = YDot + cYDot
             theta = theta + cthetaDot * self.dt; thetaDot = thetaDot + cthetaDot
 
+        
+          
+            #pdb.set_trace()
+
+        # print(iteration)
         self.X[i] = X; self.XDot[i] = XDot
         self.Y[i] = Y; self.YDot[i] = YDot
         self.theta[i] = theta; self.thetaDot[i] = thetaDot
@@ -350,13 +371,14 @@ class swimmer(object):
 
         # Calculate forces applied ON the swimmer:
         FX, FY, M = self.calcForces(theta, XDot, YDot, thetaDot, timestep)
-
+        #print(FX,FY,M)
+        # pdb.set_trace()
 
         cXDotVec = np.linalg.solve(C, np.array([[-FX],[-FY],[-M]]))
         cXDot = cXDotVec[0,0]
         cYDot = cXDotVec[1,0]
         cthetaDot = cXDotVec[2,0]
-
+        #pdb.set_trace()
         return cXDot, cYDot, cthetaDot
     
 
@@ -372,6 +394,7 @@ class swimmer(object):
         C = np.zeros([3,3])
         
         for j in self.structures:
+
             C = C + j.computeDragConstants(theta)
 
         return C
@@ -395,7 +418,7 @@ class swimmer(object):
                 self.y = np.concatenate((self.y, j.y), axis=0)
 
         ## !!!!! Fix me later
-        self.X = self.x
+        #self.X = self.x
             
                 
     ###############################################            
@@ -403,22 +426,27 @@ class swimmer(object):
 
     def plotDisp(self,DF=1,plotFrac=1):
 
+        x = self.x
+        y = self.y
+        
         print('Displaying solution shapes')
-        nx = self.x.shape[0]
+        #nx = self.x.shape[0]
+        nx = x.shape[0]
+        
         nt = self.t.shape[0]
 
         nFrames = np.int(np.floor(nt/DF*plotFrac))
 
-        yRange = np.max(self.y)-np.min(self.y)
-        xRange = np.max(self.X)-np.min(self.X)
+        yRange = np.max(y)-np.min(y)
+        xRange = np.max(x)-np.min(x)
 
 
         figScale = 8.0
-        fig = plt.figure(figsize=[figScale,yRange/np.max(self.x)*figScale])
+        fig = plt.figure(figsize=[figScale,yRange/np.max(x)*figScale])
         ax = plt.axes()
 
-        ax.set_xlim([np.min(self.X)-.1*xRange,np.max(self.X)+.1*xRange])
-        ax.set_ylim([np.min(self.y)-.25*yRange,np.max(self.y)+.25*yRange])
+        ax.set_xlim([np.min(x)-.1*xRange,np.max(x)+.1*xRange])
+        ax.set_ylim([np.min(y)-.25*yRange,np.max(y)+.25*yRange])
         ax.set_yticklabels([])
         
         line, = ax.plot([], [],'.',lw=2, markersize=4)
@@ -430,10 +458,10 @@ class swimmer(object):
 
         # animation function, called sequentially:
         def animate(i):
-            y2 = self.y[:,DF*i]
-            X2 = self.X[:,DF*i]
+            y2 = y[:,DF*i]
+            x2 = x[:,DF*i]
             #line.set_data(self.x,y2)
-            line.set_data(X2,y2)
+            line.set_data(x2,y2)
             return line,
 
         # Call the animator:

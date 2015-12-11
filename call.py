@@ -4,7 +4,7 @@ import twoTailLib as tt
 
 
 
-LT1 = 1200       # Length of tail 1
+LT1 = 1500       # Length of tail 1
 LT2 = LT1        # Length of tail 2
 alpha1 = np.pi/8
 alpha2 = -np.pi/8
@@ -13,14 +13,14 @@ origin1 = np.array([0,0])
 origin2 = origin1
 
 omega1 = 3.25*2*np.pi     # Frequency of actuator 1
-omega2 = omega1          # Frequency of actuator 2
+omega2 = omega1*0.92          # Frequency of actuator 2
 phi1 = 0   # initial phase of actuator 1
 phi2 = 0       
-nT = 1.0                  # Number of actuation periods to compute
+nT = 50.0                  # Number of actuation periods to compute
 dt = 0.001
 dt = 0.004
  
-drivingFunction = 3       # Shape of actuation (see 2tailLib)
+drivingFunction = 1       # Shape of actuation (see 2tailLib)
 
 E = 3.86                  # Modulus of elasticity
 IT1 = 7.9**3 * 22.0 / 12.0
@@ -34,8 +34,8 @@ zetaN2 = zetaN1           # Tail 2
 zetaT2 = zetaT1           # Tail 2
 
 moment1 = -37.37            # Peak bending moment, actuator 1
-mStart1 = 50.0            # Distance of start of actuator 1 from tail1 root
-mEnd1 = mStart1 + 60.0     # Distance of end of actuator 1 from tail root
+mStart1 = 100.0            # Distance of start of actuator 1 from tail1 root
+mEnd1 = mStart1 + 50.0     # Distance of end of actuator 1 from tail root
 moment2 = -moment1          # Peak bending moment, actuator 2
 mStart2 = mStart1            # Distance of start of actuator 2 from tail2 root
 mEnd2 = mEnd1     # Distance of end of actuator 2 from tail2 root
@@ -51,10 +51,13 @@ params2 = {'LT':LT2, 'alpha':alpha2, 'origin':origin2, 'dx':dx, 'omega':omega2, 
 flagella1 = tt.flagella(params1)
 flagella2 = tt.flagella(params2)
 structures = [flagella1, flagella2]
+#structures = [flagella1]
 
 s = tt.swimmer(structures, tMax, dt)
 s.numSolve()
 s.assemble()
+plt.plot(s.t,s.X)
+plt.show()
 s.plotDisp(DF=4)
 
 
