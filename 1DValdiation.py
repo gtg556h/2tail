@@ -6,11 +6,11 @@ import twoTailLib as tt
 ID1 = 'flagella1'
 ID2 = 'flagella2'
 
-LT1 = 900       # Length of tail 1
-LT2 = 900#LT1        # Length of tail 2
-alpha1 = np.pi/4
-alpha2 = -alpha1
-dx = 3.0
+LT1 = 1503       # Length of tail 1
+LT2 = 424        # Length of tail 2
+alpha1 = 0
+alpha2 = np.pi
+dx = 6.0#3.0
 origin1 = np.array([0,0])
 origin2 = origin1
 
@@ -18,7 +18,7 @@ omega1 = 3.25*2*np.pi     # Frequency of actuator 1
 omega2 = omega1          # Frequency of actuator 2
 phi1 = 0   # initial phase of actuator 1
 phi2 = 0       
-nT = 10.0                  # Number of actuation periods to compute
+nT = 4.0                  # Number of actuation periods to compute
 dt = 0.001
 dt = 0.004
  
@@ -32,13 +32,13 @@ A2 = E*IT2                # Bending stiffness of tail 2
 
 zetaN1 = 9.25E-9          # Normal drap coeff, tail 1
 zetaT1 = zetaN1 / 2.0     # Tangential drag coeff, tail 1
-zetaN2 = zetaN1           # Tail 2
-zetaT2 = zetaT1           # Tail 2
+zetaN2 = 11.2E-9           # Tail 2
+zetaT2 = zetaN2/2.0          # Tail 2
 
-moment1 = -70            # Peak bending moment, actuator 1
-mStart1 = 100.0            # Distance of start of actuator 1 from tail1 root
+moment1 = 37.4            # Peak bending moment, actuator
+mStart1 = 45.0            # Distance of start of actuator 1 from tail1 root
 mEnd1 = mStart1 + 60.0     # Distance of end of actuator 1 from tail root
-moment2 = -moment1          # Peak bending moment, actuator 2
+moment2 = 0          # Peak bending moment, actuator 2
 mStart2 = mStart1            # Distance of start of actuator 2 from tail2 root
 mEnd2 = mEnd1     # Distance of end of actuator 2 from tail2 root
 

@@ -172,6 +172,7 @@ class flagella(object):
         eta_x = np.dot(self.Dx, self.eta[:,i])
         eta_t = (self.eta[:, i] - self.eta[:, i-1]) / self.dt
 
+        
         f_xi = self.dx * np.dot(np.multiply((eta_t - vFlow), eta_x), (self.zetaN - self.zetaT))
 
         f_x, f_y = self.local2global(f_xi, 0, theta)
