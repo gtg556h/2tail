@@ -8,8 +8,8 @@ ID2 = 'flagella2'
 
 LT1 = 900       # Length of tail 1
 LT2 = 900#LT1        # Length of tail 2
-alpha1 = np.pi/4
-alpha2 = -alpha1
+alpha1 = 0#np.pi/4
+alpha2 = 1*np.pi#-alpha1
 dx = 3.0
 origin1 = np.array([0,0])
 origin2 = origin1
@@ -18,7 +18,7 @@ omega1 = 3.25*2*np.pi     # Frequency of actuator 1
 omega2 = omega1          # Frequency of actuator 2
 phi1 = 0   # initial phase of actuator 1
 phi2 = 0       
-nT = 10.0                  # Number of actuation periods to compute
+nT = 2.0                  # Number of actuation periods to compute
 dt = 0.001
 dt = 0.004
  
@@ -50,17 +50,17 @@ params2 = {'ID':ID2, 'LT':LT2, 'alpha':alpha2, 'origin':origin2, 'dx':dx, 'omega
 
 
 
-flagella1 = tt.flagella(params1)
-flagella2 = tt.flagella(params2)
-structures = [flagella1, flagella2]
+f1 = tt.flagella(params1)
+f2 = tt.flagella(params2)
+structures = [f1, f2]
 #structures = [flagella1]
 
 s = tt.swimmer(structures, tMax, dt)
-s.numSolve(hydrodynamicCoupling=1, propulsion=1)
-s.assemble()
-plt.plot(s.t,s.X)
-plt.show()
-s.plotDisp(DF=4)
+#s.numSolve(hydrodynamicCoupling=1, propulsion=1)
+#s.assemble()
+#plt.plot(s.t,s.X)
+#plt.show()
+#s.plotDisp(DF=4)
 
 
 
