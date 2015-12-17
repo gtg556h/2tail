@@ -57,10 +57,10 @@ class flagella(object):
     # operator np.dot(l2g, np.dot(c, g2l)) computes drag *on swimmer* in global basis
     
     def l2g(self, theta):
-        return np.array([[np.cos(theta + self.alpha), -np.sin(theta + self.alpha)], [np.sin(theta + self.alpha), np.cos(theta + self.alpha)]])
+        return np.array([[np.cos(theta + self.alpha), -np.sin(theta + self.alpha),0], [np.sin(theta + self.alpha), np.cos(theta + self.alpha),0],[0,0,1]])
 
     def g2l(self, theta):
-        return np.array([[np.cos(theta + self.alpha), np.sin(theta + self.alpha)], [-np.sin(theta + self.alpha), np.cos(theta + self.alpha)]])
+        return np.array([[np.cos(theta + self.alpha), np.sin(theta + self.alpha), 0], [-np.sin(theta + self.alpha), np.cos(theta + self.alpha), 0], [0, 0, 1]])
 
 
     ##########################################################
@@ -79,6 +79,14 @@ class flagella(object):
         
     def processActuator(self, t, dt):
         self.t = t
+
+        #####
+        # Debugging accumulation:
+        self.Fx = np.zeros_like(t)
+        self.Fy = np.zeros_like(t)
+        self.drag_moment = np.zeros_like(t)
+
+
         self.dt = dt
         self.m = np.zeros_like(self.xi0)
         mStartIndex = np.round(self.params['mStart'] / self.params['dx'])
@@ -218,67 +226,92 @@ class flagella(object):
 
         # SUSPECTED BUG IN THIS FUNCTION!!!
         
-        c = np.zeros([3,3])
 
-        c_xi = self.dx * np.sum(self.zetaT)
-        c_eta = self.dx * np.sum(self.zetaN)
+        c_xi_xi = -self.dx * np.sum(self.zetaT)
+        
+        c_eta_eta = -self.dx * np.sum(self.zetaN)
+        c_eta_m = -self.dx * np.sum(self.xi0 * self.zetaN)
 
+        c_m_xi = 0
+        c_m_eta = -self.dx * np.sum(self.xi0 *self.zetaN)
+        c_m = -self.dx * np.sum(self.xi0 * self.xi0 * self.zetaN)
+        
+        c = np.array([[c_xi_xi, 0, 0], [0, c_eta_eta, c_eta_m], [c_m_xi, c_m_eta, c_m]])
+
+        C = np.dot(self.l2g(theta), np.dot(c, self.g2l(theta)))
         
 
-        c[0,0] = self.dx * self.local2global(c_xi, 0, theta)
-        
-        c[0,0] = -self.dx * np.sum(self.zetaN) * np.abs(np.sin(self.alpha + theta))
-        c[0,0] = c[0,0] - self.dx * np.sum(self.zetaT) * np.abs(np.cos(self.alpha + theta))
+        # Old computation:
+        c2 = np.zeros([3,3])
+
+        c2[0,0] = -self.dx * np.sum(self.zetaN) * np.abs(np.sin(self.alpha + theta))
+        c2[0,0] = c[0,0] - self.dx * np.sum(self.zetaT) * np.abs(np.cos(self.alpha + theta))
         # Assuming flagella radial to origin:
-        c[2,0] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
+        c2[2,0] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
                                   
-        c[1,1] = -self.dx * np.sum(self.zetaN) * np.abs(np.cos(self.alpha + theta))
-        c[1,1] = c[1,1] - self.dx * np.sum(self.zetaT) * np.abs(np.sin(self.alpha + theta))
+        c2[1,1] = -self.dx * np.sum(self.zetaN) * np.abs(np.cos(self.alpha + theta))
+        c2[1,1] = c[1,1] - self.dx * np.sum(self.zetaT) * np.abs(np.sin(self.alpha + theta))
         # Assuming flagella radial to origin:
-        c[2,1] = -self.dx * np.sum(self.xi0 * self.zetaN) * np.cos(self.alpha + theta)
+        c2[2,1] = -self.dx * np.sum(self.xi0 * self.zetaN) * np.cos(self.alpha + theta)
 
 
         # Following *assumes* that flagella is radial WRT to origin.  Modify!!
-        c[2,2] = -self.dx * np.sum(self.xi0 * self.xi0 * self.zetaN)
-        c[0,2] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
-        c[1,2] = -self.dx * np.sum(self.xi0 * self.zetaN) * np.cos(self.alpha + theta)
-                
+        c2[2,2] = -self.dx * np.sum(self.xi0 * self.xi0 * self.zetaN)
+        c2[0,2] = self.dx * np.sum(self.xi0 * self.zetaN) * np.sin(self.alpha + theta)
+        c2[1,2] = -self.dx * np.sum(self.xi0 * self.zetaN) * np.cos(self.alpha + theta)
+
+        # pdb.set_trace()
 
         
-        return c
+        return C
 
     #############################################################
         
     def calcDrag(self, theta, thetaDot, XDot, YDot, timestep):
         # Compute drag forces and moments ON swimmer elements:
 
+        ### CLEAN ME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         # Generate array of drag coefficients:
-        c = self.computeDragConstants(theta)
+        C = self.computeDragConstants(theta)
 
         # Calculate eta velocity, map to global coordinate system:
         etaDot = (self.eta[:,timestep] - self.eta[:, timestep-1]) / self.dt
+        f_eta = -self.dx * np.sum(etaDot * self.zetaN)
+        
         xDot, yDot = self.local2global(0,etaDot,theta)
 
         # Compose vector of system motion:
         XDotVec = np.array([XDot,YDot,thetaDot])
 
-        pdb.set_trace()
-        # Compute forces and moments on element:
-        fx = -self.dx * np.sum(xDot * self.zetaN) 
-        fx = fx + np.dot(c, XDotVec)[0,0]
+        Fx = np.dot(C, XDotVec)[0] + self.local2global(0, f_eta, theta)[0]
+        Fy = np.dot(C, XDotVec)[1] + self.local2global(0, f_eta, theta)[1]
 
-        fy = -self.dx * np.sum(yDot * self.zetaN) 
-        fy = fy + np.dot(c, XDotVec)[1,0]
+        moment = np.dot(C, XDotVec)[2] - self.dx * np.sum(self.xi0 * etaDot * self.zetaN)
+
+        self.Fx[timestep] = Fx
+        self.Fy[timestep] = Fy
+        self.drag_moment[timestep] = moment
+
+        # EVIDENCE SUGGESTS THAT F_Y IS BACKWARDS WITH ALPHA DEPENDENCY!!!!!
+        
+        #pdb.set_trace()
+        # Compute forces and moments on element:
+        #fx = -self.dx * np.sum(xDot * self.zetaN) 
+        #fx = fx + np.dot(c, XDotVec)[0,0]
+
+        #fy = -self.dx * np.sum(yDot * self.zetaN) 
+        #fy = fy + np.dot(c, XDotVec)[1,0]
 
         
         # Following calculation assumes that flagella is radial to origin.
         # Create scaling array that maps flagella location with radial component
         # in future!!!
         
-        moment = -self.dx * np.sum(etaDot * self.xi0 * self.zetaN)
-        moment = moment + np.dot(c, XDotVec)[2,0]
+        #moment = -self.dx * np.sum(etaDot * self.xi0 * self.zetaN)
+        #moment = moment + np.dot(c, XDotVec)[2,0]
 
-        return fx, fy, moment
+        return Fx, Fy, moment
 
     #def calcCorrectionDrag(self, theta, thetaDot, XDot, YDot):
         # Compute drag forces for

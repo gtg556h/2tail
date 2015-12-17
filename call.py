@@ -56,8 +56,8 @@ structures = [f1, f2]
 #structures = [flagella1]
 
 s = tt.swimmer(structures, tMax, dt)
-#s.numSolve(hydrodynamicCoupling=1, propulsion=1)
-#s.assemble()
+s.numSolve(hydrodynamicCoupling=1, propulsion=1)
+s.assemble()
 #plt.plot(s.t,s.X)
 #plt.show()
 #s.plotDisp(DF=4)
