@@ -8,8 +8,8 @@ ID2 = 'flagella2'
 
 LT1 = 900       # Length of tail 1
 LT2 = 900#LT1        # Length of tail 2
-alpha1 = 0#np.pi/4
-alpha2 = 1*np.pi#-alpha1
+alpha1 = np.pi/2#np.pi/4
+alpha2 = -np.pi/2#-alpha1
 dx = 3.0
 origin1 = np.array([0,0])
 origin2 = origin1
@@ -35,7 +35,7 @@ zetaT1 = zetaN1 / 2.0     # Tangential drag coeff, tail 1
 zetaN2 = zetaN1           # Tail 2
 zetaT2 = zetaT1           # Tail 2
 
-moment1 = -70            # Peak bending moment, actuator 1
+moment1 = -37            # Peak bending moment, actuator 1
 mStart1 = 100.0            # Distance of start of actuator 1 from tail1 root
 mEnd1 = mStart1 + 60.0     # Distance of end of actuator 1 from tail root
 moment2 = -moment1          # Peak bending moment, actuator 2
